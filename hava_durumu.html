@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sıcaklık Tahmin Paneli (Hareketli Ortalama)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- KURUMSAL TASARIM SİSTEMİ (CSS) --- */
+        :root {
+            --primary-color: #2563eb; /* Kurumsal Mavi */
+            --primary-hover: #1d4ed8;
+            --secondary-color: #64748b; /* Slate Gri */
+            --bg-color: #f1f5f9;      /* Açık Gri Arkaplan */
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border-color: #e2e8f0;
+            --result-bg: #eff6ff;
+            --result-border: #bfdbfe;
+            --result-text: #1e40af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        /* HEADER */
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            font-size: 0.95rem;
+            color: var(--text-sub);
+            margin-top: 5px;
+        }
+
+        /* MAIN CARD */
+        .dashboard-card {
+            background-color: var(--card-bg);
+            width: 100%;
+            max-width: 900px; /* Genişletildi */
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 2.5rem;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* INPUT GRIDS */
+        .section-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            color: var(--text-sub);
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .inputs-row {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr); /* 7 gün için 7 sütun */
+            gap: 10px;
+            margin-bottom: 2rem;
+            overflow-x: auto; /* Küçük ekranlar için kaydırma */
+        }
+        
+        .input-group {
+            min-width: 80px; /* Her input için minimum genişlik */
+            text-align: center;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.8rem; /* Küçültüldü */
+            color: var(--text-main);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px 8px; /* Küçültüldü */
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+            background-color: #f8fafc;
+            text-align: center;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background-color: #fff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* BUTTONS */
+        .btn-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        button {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            flex: 2;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: var(--text-sub);
+            border: 1px solid var(--border-color);
+            flex: 1;
+        }
+
+        .btn-secondary:hover {
+            background-color: #f1f5f9;
+            color: var(--text-main);
+        }
+
+        /* RESULT AREA */
+        #result-area {
+            margin-top: 2rem;
+            display: none;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            background-color: var(--result-bg);
+            border: 1px solid var(--result-border);
+            color: var(--result-text);
+        }
+
+        .result-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .icon-large {
+            font-size: 2.5rem;
+        }
+
+        .text-large {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        /* CHART AREA */
+        .chart-section {
+            margin-top: 2.5rem;
+            display: none; /* Hidden by default */
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+
+        footer {
+            margin-top: 3rem;
+            font-size: 0.8rem;
+            color: var(--text-sub);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Sıcaklık Tahmin Sistemi</h1>
+        <p>Son 7 Günlük Hareketli Ortalama (Moving Average) Analizi</p>
+    </header>
+
+    <div class="dashboard-card">
+        <div class="section-title">Geçmiş 7 Günlük Sıcaklık (°C) Girişi</div>
+        
+        <div class="inputs-row" id="temp-inputs">
+            </div>
+
+        <div class="btn-container">
+            <button class="btn-primary" onclick="hesapla()">
+                <span>⚡ Tahmini Çalıştır</span>
+            </button>
+            <button class="btn-secondary" onclick="temizle()">
+                <span>↺ Sıfırla</span>
+            </button>
+            <button class="btn-secondary" onclick="rastgeleDoldur()">
+                <span>🎲 Rastgele Doldur</span>
+            </button>
+        </div>
+
+        <div id="result-area">
+            <div class="result-content">
+                <span id="result-icon" class="icon-large">🌡️</span>
+                <div>
+                    <div style="font-size: 0.85rem; opacity: 0.8; text-transform: uppercase;">Yarınki Model Tahmini</div>
+                    <div id="result-text" class="text-large"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-section" id="chart-section">
+            <div class="section-title">Haftalık Sıcaklık Trendi ve Tahmin</div>
+            <div class="chart-container">
+                <canvas id="weatherChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; Yapay Zeka Projesi - Aleyna ZENGİN, Batuhan Halit TEMEL, Mehmet Turak TEKER, Deniz EKİZ
+    </footer>
+
+    <script>
+        let myChart = null;
+        const numDays = 7;
+        const dayLabels = ['1. Gün', '2. Gün', '3. Gün', '4. Gün', '5. Gün', '6. Gün', '7. Gün'];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            generateInputs();
+            rastgeleDoldur(); // Başlangıçta rastgele veri ile doldur
+        });
+
+        function generateInputs() {
+            const container = document.getElementById('temp-inputs');
+            container.innerHTML = '';
+            for (let i = 0; i < numDays; i++) {
+                const dayName = dayLabels[i];
+                const inputGroup = document.createElement('div');
+                inputGroup.className = 'input-group';
+                inputGroup.innerHTML = `
+                    <label for="temp${i + 1}">${dayName}</label>
+                    <input type="number" id="temp${i + 1}" min="-10" max="40" step="0.1" placeholder="°C">
+                `;
+                container.appendChild(inputGroup);
+            }
+        }
+
+        function rastgeleDoldur() {
+            for (let i = 1; i <= numDays; i++) {
+                // 18 ile 28 arasında rastgele bir sıcaklık
+                const randomTemp = (Math.random() * (28 - 18) + 18).toFixed(1);
+                document.getElementById(`temp${i}`).value = randomTemp;
+            }
+        }
+
+        function hesapla() {
+            let sicakliklar = [];
+            let isValid = true;
+
+            // 1. Değerleri al ve kontrol et
+            for (let i = 1; i <= numDays; i++) {
+                const input = document.getElementById(`temp${i}`);
+                const temp = parseFloat(input.value);
+
+                if (isNaN(temp)) {
+                    isValid = false;
+                    input.focus();
+                    break;
+                }
+                sicakliklar.push(temp);
+            }
+
+            if (!isValid) {
+                alert("Lütfen tüm 7 günlük sıcaklık değerlerini eksiksiz ve sayısal olarak giriniz.");
+                return;
+            }
+
+            // 2. MODEL MANTIĞI (Hareketli Ortalama)
+            const sum = sicakliklar.reduce((a, b) => a + b, 0);
+            const tahmin_sicaklik = sum / numDays;
+            const tahmin_sicaklik_yuvarlanmis = tahmin_sicaklik.toFixed(1);
+
+            // 3. SONUÇ GÖSTERİMİ
+            const resultArea = document.getElementById('result-area');
+            const resultText = document.getElementById('result-text');
+            const chartSection = document.getElementById('chart-section');
+
+            resultArea.style.display = "block";
+            resultText.innerHTML = `${tahmin_sicaklik_yuvarlanmis}°C`;
+            
+            // 4. GRAFİK OLUŞTURMA
+            chartSection.style.display = "block";
+            setTimeout(() => {
+                chartSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+            
+            cizimYap(sicakliklar, tahmin_sicaklik_yuvarlanmis);
+        }
+
+        function cizimYap(gecmisSicakliklar, tahmin) {
+            const ctx = document.getElementById('weatherChart').getContext('2d');
+
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            const tum_gunler = dayLabels.concat(['TAHMİN']);
+            const tum_sicaklik = gecmisSicakliklar.concat([parseFloat(tahmin)]);
+            
+            // Grafik Stilleri için Diziler
+            let pointSizes = Array(numDays).fill(5);
+            let pointStyles = Array(numDays).fill('circle');
+            let pointColors = Array(numDays).fill('#2563eb'); 
+
+            // Tahmin Noktası (8. gün) için özel stil
+            pointSizes.push(12);
+            pointStyles.push('star');
+            pointColors.push('#ef4444'); // Canlı Kırmızı
+
+            // Chart.js Konfigürasyonu
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: tum_gunler,
+                    datasets: [
+                        {
+                            label: 'Sıcaklık (°C)',
+                            data: tum_sicaklik,
+                            borderColor: '#2563eb', // Mavi çizgi
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: pointSizes,
+                            pointStyle: pointStyles,
+                            pointBackgroundColor: pointColors,
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 1,
+                            fill: true,
+                            // Son 7 gün çizgi, Tahmin noktası kesik
+                            segment: {
+                                borderColor: ctx => {
+                                    if (ctx.p1DataIndex === numDays - 1 && ctx.p2DataIndex === numDays) {
+                                        return '#ef4444'; // Son segmenti kırmızı yap
+                                    }
+                                    return '#2563eb';
+                                },
+                                borderDash: ctx => {
+                                    if (ctx.p1DataIndex === numDays - 1 && ctx.p2DataIndex === numDays) {
+                                        return [6, 6]; // Kesikli çizgi
+                                    }
+                                    return [];
+                                }
+                            }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: false // Tek veri seti olduğu için gizlendi
+                        },
+                        title: {
+                            display: true,
+                            text: `Tahmin Sonucu: ${tahmin}°C (7 Günlük Hareketli Ortalama)`,
+                            font: { size: 14, weight: 'bold', family: 'Inter' },
+                            padding: 15
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                            titleFont: { family: 'Inter', size: 13 },
+                            bodyFont: { family: 'Inter', size: 12 },
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) { label += `${context.parsed.y}°C`; }
+                                    if(context.dataIndex === numDays) { label += ' (Hareketli Ortalama Tahmini)'; }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false, // 0'dan başlamak zorunda değil
+                            grid: { color: '#e2e8f0' },
+                            title: { display: true, text: 'Sıcaklık (°C)', font: { size: 12 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            title: { display: true, text: 'Zaman Çizelgesi', font: { size: 12 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function temizle() {
+            // Inputları temizle
+            for (let i = 1; i <= numDays; i++) {
+                document.getElementById(`temp${i}`).value = "";
+            }
+            
+            // UI gizle
+            document.getElementById('result-area').style.display = "none";
+            document.getElementById('chart-section').style.display = "none";
+            
+            // Grafiği temizle
+            if (myChart) {
+                myChart.destroy();
+                myChart = null;
+            }
+        }
+    </script>
+
+</body>
+</html>
